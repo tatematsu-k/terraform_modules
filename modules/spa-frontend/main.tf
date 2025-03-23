@@ -14,9 +14,24 @@ resource "aws_s3_bucket" "frontend" {
   tags = var.tags
 }
 
+# アクセスログ用のS3バケット
+resource "aws_s3_bucket" "access_logs" {
+  bucket = "${var.bucket_name}-access-logs"
+
+  tags = var.tags
+}
+
 # S3バケットのバージョニング設定
 resource "aws_s3_bucket_versioning" "frontend" {
   bucket = aws_s3_bucket.frontend.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# アクセスログ用S3バケットのバージョニング設定
+resource "aws_s3_bucket_versioning" "access_logs" {
+  bucket = aws_s3_bucket.access_logs.id
   versioning_configuration {
     status = "Enabled"
   }
@@ -39,6 +54,18 @@ resource "aws_kms_alias" "frontend" {
 # S3バケットのサーバーサイド暗号化設定
 resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
   bucket = aws_s3_bucket.frontend.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.frontend.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
+
+# アクセスログ用S3バケットのサーバーサイド暗号化設定
+resource "aws_s3_bucket_server_side_encryption_configuration" "access_logs" {
+  bucket = aws_s3_bucket.access_logs.id
 
   rule {
     apply_server_side_encryption_by_default {
@@ -74,9 +101,37 @@ resource "aws_s3_bucket_lifecycle_configuration" "frontend" {
   }
 }
 
+# アクセスログ用S3バケットのライフサイクルルール
+resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
+  bucket = aws_s3_bucket.access_logs.id
+
+  rule {
+    id     = "cleanup_old_logs"
+    status = "Enabled"
+
+    expiration {
+      days = 90
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+  }
+}
+
 # S3バケットのパブリックアクセスブロック設定
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket = aws_s3_bucket.frontend.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# アクセスログ用S3バケットのパブリックアクセスブロック設定
+resource "aws_s3_bucket_public_access_block" "access_logs" {
+  bucket = aws_s3_bucket.access_logs.id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -97,6 +152,29 @@ resource "aws_s3_bucket_policy" "frontend" {
         Principal = { Service = "cloudfront.amazonaws.com" }
         Action    = "s3:GetObject"
         Resource  = "${aws_s3_bucket.frontend.arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
+          }
+        }
+      }
+    ]
+  })
+}
+
+# アクセスログ用S3バケットのバケットポリシー
+resource "aws_s3_bucket_policy" "access_logs" {
+  bucket = aws_s3_bucket.access_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowCloudFrontLogs"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.access_logs.arn}/*"
         Condition = {
           StringEquals = {
             "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
@@ -163,6 +241,12 @@ resource "aws_cloudfront_distribution" "frontend" {
   aliases             = var.domain_names
   price_class         = var.price_class
   web_acl_id          = var.web_acl_id
+
+  logging_config {
+    bucket          = aws_s3_bucket.access_logs.bucket_domain_name
+    include_cookies = false
+    prefix          = "cloudfront/"
+  }
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
