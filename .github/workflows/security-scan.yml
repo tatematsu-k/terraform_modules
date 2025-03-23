@@ -7,9 +7,28 @@ on:
     branches: [ main ]
 
 jobs:
+  get-directories:
+    name: Get Module Directories
+    runs-on: ubuntu-latest
+    outputs:
+      directories: ${{ steps.find-dirs.outputs.dirs }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find module directories
+        id: find-dirs
+        run: |
+          DIRS=$(ls -d modules/*/ | jq -R -s -c 'split("\n")[:-1]')
+          echo "dirs=$DIRS" >> $GITHUB_OUTPUT
+
   security-scan:
     name: Security Scan
+    needs: get-directories
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        directory: ${{ fromJson(needs.get-directories.outputs.directories) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -18,16 +37,8 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'config'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy.sarif'
+          scan-ref: ${{ matrix.directory }}
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
           vuln-type: 'os,library'
-          exit-code: '0'
-
-      - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy.sarif
-          category: trivy
+          exit-code: '1'
