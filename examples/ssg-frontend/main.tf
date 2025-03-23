@@ -29,15 +29,15 @@ module "ssg_frontend" {
   source = "../../modules/ssg-frontend"
 
   bucket_name         = "my-ssg-frontend-example"
-  domain_names       = ["example.com"]
+  domain_names        = ["example.com"]
   acm_certificate_arn = aws_acm_certificate.frontend.arn
-  price_class        = "PriceClass_100"
+  price_class         = "PriceClass_100"
 
   # ライフサイクルルールの設定（オプション）
   enable_lifecycle_rule = true
   lifecycle_rule = {
-    noncurrent_version_expiration_days = 30
-    noncurrent_version_transition_days = 7
+    noncurrent_version_expiration_days          = 30
+    noncurrent_version_transition_days          = 7
     noncurrent_version_transition_storage_class = "STANDARD_IA"
   }
 

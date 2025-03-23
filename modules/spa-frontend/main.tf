@@ -201,7 +201,7 @@ resource "aws_cloudfront_response_headers_policy" "frontend" {
   security_headers_config {
     content_security_policy {
       content_security_policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:;"
-      override               = true
+      override                = true
     }
 
     content_type_options {
@@ -220,9 +220,9 @@ resource "aws_cloudfront_response_headers_policy" "frontend" {
 
     strict_transport_security {
       access_control_max_age_sec = 31536000
-      include_subdomains        = true
-      preload                   = true
-      override                  = true
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
     }
 
     xss_protection {
@@ -251,7 +251,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
-    origin_id               = aws_s3_bucket.frontend.id
+    origin_id                = aws_s3_bucket.frontend.id
   }
 
   default_cache_behavior {
@@ -259,7 +259,7 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods         = ["GET", "HEAD", "OPTIONS"]
     target_origin_id       = aws_s3_bucket.frontend.id
     viewer_protocol_policy = "redirect-to-https"
-    compress              = true
+    compress               = true
 
     response_headers_policy_id = aws_cloudfront_response_headers_policy.frontend.id
 
