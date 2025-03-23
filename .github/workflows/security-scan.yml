@@ -14,14 +14,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.0
-        with:
-          working_directory: ./
-          format: sarif
-          output_file: tfsec.sarif
-          soft_fail: true
-
       - name: Run Trivy
         uses: aquasecurity/trivy-action@master
         with:
@@ -34,14 +26,8 @@ jobs:
           vuln-type: 'os,library'
           exit-code: '0'
 
-      - name: Upload tfsec results
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: tfsec.sarif
-          category: tfsec
-
       - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy.sarif
           category: trivy
