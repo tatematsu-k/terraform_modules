@@ -22,13 +22,28 @@ resource "aws_s3_bucket_versioning" "frontend" {
   }
 }
 
+# KMSキーの作成
+resource "aws_kms_key" "frontend" {
+  description             = "KMS key for ${var.bucket_name} bucket encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = var.tags
+}
+
+resource "aws_kms_alias" "frontend" {
+  name          = "alias/${var.bucket_name}"
+  target_key_id = aws_kms_key.frontend.key_id
+}
+
 # S3バケットのサーバーサイド暗号化設定
 resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = aws_kms_key.frontend.arn
+      sse_algorithm     = "aws:kms"
     }
   }
 }
