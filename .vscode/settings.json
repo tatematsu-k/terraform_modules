@@ -1,0 +1,14 @@
+{
+  "[terraform]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "hashicorp.terraform"
+  },
+  "terraform.formatOnSave": true,
+  "terraform.lintOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  },
+  "files.associations": {
+    "*.tf": "terraform"
+  }
+}

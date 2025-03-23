@@ -41,8 +41,8 @@ variable "enable_lifecycle_rule" {
 variable "lifecycle_rule" {
   description = "ライフサイクルルールの設定"
   type = object({
-    noncurrent_version_expiration_days = optional(number, 30)
-    noncurrent_version_transition_days = optional(number, 7)
+    noncurrent_version_expiration_days          = optional(number, 30)
+    noncurrent_version_transition_days          = optional(number, 7)
     noncurrent_version_transition_storage_class = optional(string, "STANDARD_IA")
   })
   default = null
