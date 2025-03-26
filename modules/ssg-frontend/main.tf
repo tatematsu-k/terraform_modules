@@ -7,6 +7,8 @@ terraform {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 # S3バケットの作成
 resource "aws_s3_bucket" "frontend" {
   bucket = var.bucket_name
@@ -42,6 +44,38 @@ resource "aws_kms_key" "frontend" {
   description             = "KMS key for ${var.bucket_name} bucket encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid : "Enable IAM User Permissions",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action   = "kms:*",
+        Resource = "*"
+      },
+      {
+        Sid : "Allow CloudFront OAC to use the key",
+        Effect = "Allow",
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        },
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ],
+        Resource = "*",
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" : aws_cloudfront_distribution.frontend.arn
+          }
+        }
+      },
+    ]
+  })
 
   tags = var.tags
 }
@@ -110,11 +144,11 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
     status = "Enabled"
 
     expiration {
-      days = 90
+      days = 180
     }
 
     noncurrent_version_expiration {
-      noncurrent_days = 30
+      noncurrent_days = 60
     }
   }
 }
@@ -137,6 +171,15 @@ resource "aws_s3_bucket_public_access_block" "access_logs" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# アクセスログ用S3バケットの所有者設定
+resource "aws_s3_bucket_ownership_controls" "access_logs" {
+  bucket = aws_s3_bucket.access_logs.id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
 }
 
 # S3バケットのバケットポリシー
@@ -277,9 +320,10 @@ resource "aws_cloudfront_distribution" "frontend" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = var.acm_certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    cloudfront_default_certificate = var.acm_certificate_arn == null ? true : false
+    acm_certificate_arn            = var.acm_certificate_arn != null ? var.acm_certificate_arn : null
+    ssl_support_method             = var.acm_certificate_arn != null ? "sni-only" : null
+    minimum_protocol_version       = var.acm_certificate_arn != null ? "TLSv1.2_2021" : null
   }
 
   tags = var.tags
