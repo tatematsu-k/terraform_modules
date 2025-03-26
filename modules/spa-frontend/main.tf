@@ -7,6 +7,8 @@ terraform {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 # S3バケットの作成
 resource "aws_s3_bucket" "frontend" {
   bucket = var.bucket_name
@@ -42,6 +44,38 @@ resource "aws_kms_key" "frontend" {
   description             = "KMS key for ${var.bucket_name} bucket encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid : "Enable IAM User Permissions",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action   = "kms:*",
+        Resource = "*"
+      },
+      {
+        Sid : "Allow CloudFront OAC to use the key",
+        Effect = "Allow",
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        },
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ],
+        Resource = "*",
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" : aws_cloudfront_distribution.frontend.arn
+          }
+        }
+      },
+    ]
+  })
 
   tags = var.tags
 }

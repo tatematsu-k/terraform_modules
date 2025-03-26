@@ -12,6 +12,7 @@ variable "domain_names" {
 variable "acm_certificate_arn" {
   description = "ACM証明書のARN"
   type        = string
+  default     = null
 }
 
 variable "price_class" {
